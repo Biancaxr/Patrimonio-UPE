@@ -808,7 +808,10 @@ function PublicArea({
         <div className="container">
           <Logo light />
           <p>Universidade de Pernambuco • Campus Caruaru</p>
-          <span>© {now.getFullYear()} UPE</span>
+          <div className="footer-credits">
+            <span>© {now.getFullYear()} UPE</span>
+            <span>Desenvolvido por <strong>Flomap</strong></span>
+          </div>
         </div>
       </footer>
       {selected && (
