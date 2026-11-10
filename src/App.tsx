@@ -3,6 +3,7 @@ import JsBarcode from "jsbarcode";
 import { strToU8, zipSync } from "fflate";
 import type { IScannerControls } from "@zxing/browser";
 import {
+  ArrowLeft,
   ArrowLeftRight,
   BarChart3,
   Bell,
@@ -1324,8 +1325,8 @@ function Login({
   return (
     <div className="login-page">
       <div className="login-brand">
-        <button className="back-link" onClick={onBack}>
-          <ArrowLeftRight /> Voltar ao portal
+        <button className="back-link" type="button" onClick={onBack}>
+          <ArrowLeft /> Voltar ao portal
         </button>
         <div className="login-message">
           <Logo light />
@@ -1352,6 +1353,9 @@ function Login({
       </div>
       <div className="login-form-wrap">
         <form className="login-form" onSubmit={submit}>
+          <button className="back-link login-back-mobile" type="button" onClick={onBack}>
+            <ArrowLeft /> Voltar ao portal
+          </button>
           <span className="mobile-logo">
             <Logo />
           </span>

@@ -202,3 +202,8 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 
 .public-page footer .footer-credits{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 @media(max-width:600px){.public-page footer .footer-credits{align-items:center}}
+.login-back-mobile{display:none}
+@media(max-width:820px){
+  .login-back-mobile{display:inline-flex;min-height:44px;margin-bottom:24px;padding:0 8px 0 0;color:#263f6a;font-size:14px;font-weight:700}
+  .login-back-mobile:focus-visible{outline:2px solid #263f6a;outline-offset:4px;border-radius:4px}
+}
