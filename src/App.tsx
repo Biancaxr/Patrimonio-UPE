@@ -1165,7 +1165,7 @@ function Scanner({
     >
       <div className="camera">
         <video ref={videoRef} muted playsInline autoPlay />
-        <div className="corners" />
+        <div className="barcode-frame" aria-hidden="true" />
         <span>{cameraStatus}</span>
       </div>
       <button className="btn primary full camera-capture" onClick={capturePhoto} disabled={capturing || cameraFailed}>
@@ -2826,7 +2826,7 @@ function InventoryPage({ assets, now }: { assets: Asset[]; now: Date }) {
           <section className="scanner-panel">
             <div className="camera compact">
               <video ref={inventoryVideoRef} muted playsInline autoPlay />
-              <div className="corners" />
+              <div className="barcode-frame" aria-hidden="true" />
               <span>{scanStatus}</span>
             </div>
             <button className="btn primary full camera-capture" onClick={capturePhoto} disabled={capturing}>
