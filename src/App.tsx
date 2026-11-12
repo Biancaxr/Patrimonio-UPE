@@ -521,8 +521,8 @@ function Logo({ light = false }: { light?: boolean }) {
         />
       </span>
       <div className="system-name">
-        <strong>Patrimônio</strong>
-        <small>Gestão universitária</small>
+        <strong>FlowMap</strong>
+        <small>Plataforma de Mapeamento e Gestão do Fluxo Patrimonial</small>
       </div>
     </div>
   );
@@ -656,47 +656,14 @@ function PublicArea({
           <div className="hero-glow" />
           <div className="container hero-grid">
             <div className="hero-copy">
-              <div className="eyebrow">
-                <Sparkles /> Patrimônio público, simples e transparente
-              </div>
               <h1>
-                Encontre um patrimônio em <em>poucos segundos.</em>
+                Flow<em>Map</em>
               </h1>
               <p>
-                Consulte equipamentos e espaços públicos da UPE Campus Caruaru
-                com segurança — sem precisar de login.
+                Gestão inteligente do patrimônio universitário, conectando inventário, localização, 
+                movimentações, vistorias e manutenção em um único ambiente.
               </p>
-              <div className="public-search" id="consulta">
-                <Search />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Buscar patrimônio por código, nome, categoria, marca, modelo, setor ou local"
-                  placeholder="Ex.: Dell Latitude ou código"
-                />
-                <button>Consultar</button>
-                {results.length > 0 && (
-                  <div className="search-results">
-                    {results.map((asset) => (
-                      <button
-                        key={asset.id}
-                        onClick={() => {
-                          setSelected(asset);
-                          setQuery("");
-                        }}
-                      >
-                        <span>
-                          <strong>{asset.name}</strong>
-                          <small>
-                            {asset.code} • {asset.category}
-                          </small>
-                        </span>
-                        <ChevronRight />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+
               <span className="helper">
                 <ShieldCheck /> Somente informações autorizadas são exibidas.
               </span>
@@ -716,26 +683,6 @@ function PublicArea({
               <button className="btn full" onClick={() => setScan(true)}>
                 <ScanLine /> Abrir scanner
               </button>
-            </div>
-          </div>
-        </section>
-        <section className="public-stats">
-          <div className="container">
-            <div>
-              <strong>{fmt.format(assets.length)}</strong>
-              <span>bens catalogados</span>
-            </div>
-            <div>
-              <strong>{fmt.format(publicAssets.length)}</strong>
-              <span>itens de consulta pública</span>
-            </div>
-            <div>
-              <strong>100%</strong>
-              <span>rastreabilidade digital</span>
-            </div>
-            <div>
-              <strong>24h</strong>
-              <span>consulta disponível</span>
             </div>
           </div>
         </section>
