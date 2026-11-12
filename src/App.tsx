@@ -93,7 +93,6 @@ type Page =
   | "loans"
   | "maintenance"
   | "inspections"
-  | "create-ticket"
   | "tickets"
   | "reports"
   | "chat"
@@ -114,6 +113,13 @@ const date = (value: string) =>
 const safeDownloadName = (value: string) => {
   const normalized = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   return normalized || "arquivo";
+};
+
+const getSearchTerms = (query: string) => query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+const matchesSearchTerms = (fields: string[], terms: string[]) => {
+  const text = fields.join(" ").toLowerCase();
+  return terms.every((term) => text.includes(term));
 };
 
 const normalizeBarcode = (value: string) =>
@@ -621,14 +627,14 @@ function PublicArea({
     () => assets.filter((a) => a.visibility === "Público"),
     [assets],
   );
+  const searchTerms = getSearchTerms(query);
   const results =
     query.trim().length > 1
       ? publicAssets
-          .filter((a) =>
-            `${a.code} ${a.name} ${a.category} ${a.room}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-          )
+          .filter((a) => matchesSearchTerms(
+            [a.code, a.name, a.category, a.brand, a.model, a.sector, a.room],
+            searchTerms,
+          ))
           .slice(0, 6)
       : [];
 
@@ -665,7 +671,8 @@ function PublicArea({
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Digite o código, nome ou categoria"
+                  aria-label="Buscar patrimônio por código, nome, categoria, marca, modelo, setor ou local"
+                  placeholder="Ex.: Dell Latitude ou código"
                 />
                 <button>Consultar</button>
                 {results.length > 0 && (
@@ -753,7 +760,7 @@ function PublicArea({
                 <Search />
               </div>
               <h3>Consultar patrimônio</h3>
-              <p>Busque por identificação, nome ou categoria.</p>
+              <p>Busque por código, nome, categoria, marca, modelo ou setor.</p>
               <span>
                 Acessar consulta <ChevronRight />
               </span>
@@ -1262,42 +1269,6 @@ function SupportForm({
   );
 }
 
-function CreateTicketPage({
-  user,
-  onCreated,
-  onNotify,
-}: {
-  user: SessionUser;
-  onCreated: (ticket: SupportTicket) => void;
-  onNotify: (message: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const submit = async (ticket: SupportTicket) => {
-    let saved = ticket;
-    if (hasApi()) {
-      try {
-        saved = await api<SupportTicket>("/public/tickets", { method: "POST", body: JSON.stringify(ticket) });
-      } catch (cause) {
-        onNotify(cause instanceof Error ? cause.message : "Falha ao criar chamado.");
-        return;
-      }
-    }
-    onCreated(saved);
-    setOpen(false);
-    onNotify("Chamado criado com sucesso.");
-  };
-  return (
-    <>
-      <div className="page-actions">
-        <div><h2>Criar chamado</h2><p>Informe um problema ou solicite atendimento às equipes responsáveis.</p></div>
-        <button className="btn primary" onClick={() => setOpen(true)}><Plus /> Novo chamado</button>
-      </div>
-      <section className="panel empty"><MessageSquareWarning /><h3>Canal de atendimento</h3><p>Use o formulário para registrar danos, falhas de sistema ou dúvidas.</p><button className="btn primary" onClick={() => setOpen(true)}>Abrir formulário</button></section>
-      {open && <SupportForm asset={null} requesterName={user.name} requesterContact={user.email} onClose={() => setOpen(false)} onSubmit={(ticket) => void submit(ticket)} />}
-    </>
-  );
-}
-
 function Login({
   onSuccess,
   onBack,
@@ -1420,7 +1391,6 @@ function Sidebar({
     ["map", "Mapa patrimonial", <Map />],
     ["inventory", "Inventário", <ClipboardCheck />],
     ["inspections", "Vistorias", <ListChecks />],
-    ["create-ticket", "Criar chamado", <MessageSquareWarning />],
     ["tickets", "Chamados", <MessageSquareWarning />],
     ["movements", "Movimentações", <ArrowLeftRight />],
     ["loans", "Empréstimos", <PackageCheck />],
@@ -1432,7 +1402,7 @@ function Sidebar({
     admin: allMain.map(([key]) => key),
     administration: allMain.map(([key]) => key),
     nti: ["assets", "inventory", "tickets"],
-    student: ["assets", "inspections", "create-ticket"],
+    student: ["assets", "inspections", "tickets"],
   };
   const main = allMain.filter(([key]) => allowed[user.role].includes(key));
   const admin: [Page, string, React.ReactNode][] = [
@@ -1451,7 +1421,7 @@ function Sidebar({
       {icon}
       <span>{label}</span>
       {key === "maintenance" && maintenanceCount > 0 && <b>{maintenanceCount}</b>}
-      {key === "tickets" && ticketCount > 0 && <b>{ticketCount}</b>}
+      {key === "tickets" && user.role !== "student" && ticketCount > 0 && <b>{ticketCount}</b>}
     </button>
   );
   return (
@@ -1634,6 +1604,7 @@ function Topbar({
           <Search />
           <input
             onChange={(e) => onSearch(e.target.value)}
+            aria-label="Buscar patrimônio por código, nome, categoria, marca, modelo, setor, local ou responsável"
             placeholder="Buscar patrimônio..."
           />
         </label>
@@ -2004,14 +1975,16 @@ function AssetsPage({
   const [editing, setEditing] = useState<Asset | "new" | null>(null);
   useEffect(() => setQuery(initialQuery), [initialQuery]);
   const categories = [...new Set(assets.map((a) => a.category))].sort();
+  const searchTerms = getSearchTerms(query);
   const filtered = assets
     .filter(
       (a) =>
         (status === "Todos" || a.status === status) &&
         (category === "Todas" || a.category === category) &&
-        `${a.code} ${a.name} ${a.category} ${a.model} ${a.room} ${a.responsible}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        matchesSearchTerms(
+          [a.code, a.name, a.category, a.brand, a.model, a.sector, a.room, a.responsible],
+          searchTerms,
+        ),
     )
     .slice(0, 100);
   const save = async (asset: Asset) => {
@@ -2046,7 +2019,9 @@ function AssetsPage({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Código, nome, modelo ou local..."
+              aria-label="Buscar patrimônio por código, nome, categoria, marca, modelo, setor, local ou responsável"
+              placeholder="Código, nome, marca, modelo ou setor..."
+              title="Ex.: Dell Latitude ou HP ProBook"
             />
           </label>
           <label>
@@ -3579,9 +3554,26 @@ function InspectionsPage({
 
 function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets: SupportTicket[]; setTickets: (items: SupportTicket[]) => void; onNotify: (message: string) => void; user: SessionUser; assets: Asset[] }) {
   const columns: TicketStatus[] = ["Novo", "Em triagem", "Em atendimento", "Resolvido"];
+  const canCreate = user.role !== "nti";
+  const canViewQueue = user.role !== "student";
+  const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const visibleTickets = tickets.filter((ticket) => canHandleTicket(ticket, user, assets));
+  const visibleTickets = canViewQueue ? tickets.filter((ticket) => canHandleTicket(ticket, user, assets)) : [];
   const selected = visibleTickets.find((ticket) => ticket.id === selectedId) || null;
+  const create = async (ticket: SupportTicket) => {
+    let saved = ticket;
+    if (hasApi()) {
+      try {
+        saved = await api<SupportTicket>("/public/tickets", { method: "POST", body: JSON.stringify(ticket) });
+      } catch (cause) {
+        onNotify(cause instanceof Error ? cause.message : "Falha ao criar chamado.");
+        return;
+      }
+    }
+    setTickets([saved, ...tickets]);
+    setCreating(false);
+    onNotify("Chamado criado com sucesso.");
+  };
   const nextStatus = (status: TicketStatus): TicketStatus => columns[Math.min(columns.indexOf(status) + 1, columns.length - 1)];
   const advance = async (ticket: SupportTicket) => {
     if (!canHandleTicket(ticket, user, assets)) {
@@ -3599,7 +3591,11 @@ function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets:
   };
   return (
     <>
-      <div className="page-actions"><div><h2>Chamados</h2><p>Mensagens de suporte e danos enviados pelos usuários.</p></div></div>
+      <div className="page-actions ticket-page-actions">
+        <div><h2>Chamados</h2><p>{canViewQueue ? "Acompanhe as solicitações de suporte e danos enviados pelos usuários." : "Informe um problema ou solicite atendimento às equipes responsáveis."}</p></div>
+        {canCreate && <button className="btn primary" type="button" onClick={() => setCreating(true)}><Plus /> Novo chamado</button>}
+      </div>
+      {canViewQueue ? <>
       <div className="ticket-summary">
         <span><strong>{visibleTickets.filter((item) => item.status !== "Resolvido").length}</strong>abertos</span>
         <span><strong>{visibleTickets.filter((item) => item.category === "Equipamento danificado").length}</strong>danos eletrônicos</span>
@@ -3618,6 +3614,8 @@ function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets:
           {!visibleTickets.some((item) => item.status === status) && <div className="board-empty">Nenhum chamado</div>}
         </section>)}
       </div>
+      </> : <section className="panel empty"><MessageSquareWarning /><h3>Canal de atendimento</h3><p>Use “Novo chamado” para registrar danos, falhas de sistema ou dúvidas.</p></section>}
+      {canCreate && creating && <SupportForm asset={null} requesterName={user.name} requesterContact={user.email} onClose={() => setCreating(false)} onSubmit={(ticket) => void create(ticket)} />}
       {selected && <Modal title={selected.category} subtitle={`Chamado de ${selected.requester}`} onClose={() => setSelectedId(null)}>
         <div className="stage-detail">
           <div><span>Etapa atual</span><Status>{selected.status}</Status></div>
@@ -4082,7 +4080,6 @@ function App() {
     loans: "Empréstimos",
     maintenance: "Manutenção",
     inspections: "Vistorias",
-    "create-ticket": "Criar chamado",
     tickets: "Chamados",
     reports: "Relatórios",
     chat: "Assistente IA",
@@ -4139,8 +4136,6 @@ function App() {
     );
   else if (page === "inspections")
     content = <InspectionsPage templates={checklistTemplates} inspections={inspections} setInspections={setInspections} user={user} onNotify={notify} now={now} />;
-  else if (page === "create-ticket")
-    content = <CreateTicketPage user={user} onCreated={(ticket) => setTickets([ticket, ...tickets])} onNotify={notify} />;
   else if (page === "tickets")
     content = <TicketsPage tickets={tickets} setTickets={setTickets} onNotify={notify} user={user} assets={assets} />;
   else if (page === "reports") content = <Reports assets={assets} />;
