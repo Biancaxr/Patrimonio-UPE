@@ -1372,7 +1372,6 @@ function Sidebar({
   const main = allMain.filter(([key]) => allowed[user.role].includes(key));
   const admin: [Page, string, React.ReactNode][] = [
     ["users", "Usuários", <Users />],
-    ["settings", "Configurações", <Settings />],
   ];
   const item = ([key, label, icon]: [Page, string, React.ReactNode]) => (
     <button
@@ -3607,7 +3606,7 @@ function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets:
   );
 }
 
-function Reports({ assets }: { assets: Asset[] }) {
+function Reports({ assets, movements, maintenances }: { assets: Asset[]; movements: Movement[]; maintenances: Maintenance[] }) {
   const exportExcel = () => {
     const rows: (string | number)[][] = [
       ["Código", "Nome", "Categoria", "Status", "Setor", "Local", "Valor"],
@@ -3624,21 +3623,90 @@ function Reports({ assets }: { assets: Asset[] }) {
     downloadXlsx("relatorio-patrimonio", "Patrimônio", rows);
   };
   const reports = [
-    ["Patrimônio geral", "Todos os bens, localização e situação", Boxes],
-    [
-      "Patrimônio por setor",
-      "Distribuição por unidade administrativa",
-      Building2,
-    ],
-    ["Equipamentos em manutenção", "Chamados, prazos e custos", Wrench],
-    [
-      "Histórico de movimentações",
-      "Transferências e responsáveis",
-      ArrowLeftRight,
-    ],
-    ["Valores patrimoniais", "Consolidação financeira do acervo", BarChart3],
-    ["Inventários", "Resultados e divergências", ClipboardCheck],
-  ];
+    { key: "assets", title: "Patrimônio geral", description: "Todos os bens, localização e situação", Icon: Boxes },
+    { key: "sectors", title: "Patrimônio por setor", description: "Distribuição por unidade administrativa", Icon: Building2 },
+    { key: "maintenance", title: "Equipamentos em manutenção", description: "Chamados, prazos e custos", Icon: Wrench },
+    { key: "movements", title: "Histórico de movimentações", description: "Transferências e responsáveis", Icon: ArrowLeftRight },
+    { key: "values", title: "Valores patrimoniais", description: "Consolidação financeira do acervo", Icon: BarChart3 },
+    { key: "inventory", title: "Inventários", description: "Bens cadastrados, localização e situação", Icon: ClipboardCheck },
+  ] as const;
+  const exportPdf = async (reportKey: (typeof reports)[number]["key"]) => {
+    const report = reports.find((item) => item.key === reportKey);
+    if (!report) return;
+
+    let columns: string[];
+    let rows: string[][];
+    let summary: string;
+    switch (reportKey) {
+      case "assets":
+        columns = ["Código", "Bem", "Categoria", "Status", "Setor", "Local", "Responsável"];
+        rows = assets.map((asset) => [asset.code, asset.name, asset.category, asset.status, asset.sector, asset.room, asset.responsible]);
+        summary = `${assets.length} bens cadastrados`;
+        break;
+      case "sectors": {
+        columns = ["Setor", "Quantidade de bens", "Valor total"];
+        const sectors = new globalThis.Map<string, { count: number; value: number }>();
+        assets.forEach((asset) => {
+          const current = sectors.get(asset.sector) || { count: 0, value: 0 };
+          sectors.set(asset.sector, { count: current.count + 1, value: current.value + asset.value });
+        });
+        rows = [...sectors].sort(([a], [b]) => a.localeCompare(b, "pt-BR")).map(([sector, data]) => [sector, String(data.count), currency.format(data.value)]);
+        summary = `${sectors.size} setores; ${assets.length} bens; valor total ${currency.format(assets.reduce((total, asset) => total + asset.value, 0))}`;
+        break;
+      }
+      case "maintenance":
+        columns = ["Código", "Bem", "Problema", "Status", "Técnico", "Abertura", "Custo"];
+        rows = maintenances.map((item) => [item.assetCode, item.assetName, item.issue, item.status, item.technician, date(item.openedAt), currency.format(item.cost)]);
+        summary = `${maintenances.length} registros de manutenção`;
+        break;
+      case "movements":
+        columns = ["Data", "Código", "Bem", "Origem", "Destino", "Responsável anterior", "Novo responsável", "Motivo"];
+        rows = movements.map((item) => [date(item.createdAt), item.assetCode, item.assetName, item.from, item.to, item.previousResponsible, item.newResponsible, item.reason]);
+        summary = `${movements.length} movimentações registradas`;
+        break;
+      case "values":
+        columns = ["Código", "Bem", "Categoria", "Setor", "Status", "Valor"];
+        rows = [...assets].sort((a, b) => b.value - a.value).map((asset) => [asset.code, asset.name, asset.category, asset.sector, asset.status, currency.format(asset.value)]);
+        summary = `Valor total do acervo: ${currency.format(assets.reduce((total, asset) => total + asset.value, 0))}`;
+        break;
+      case "inventory":
+        columns = ["Código", "Bem", "Setor", "Prédio", "Local", "Conservação", "Status", "Atualizado em"];
+        rows = assets.map((asset) => [asset.code, asset.name, asset.sector, asset.building, asset.room, asset.condition, asset.status, date(asset.updatedAt)]);
+        summary = `${assets.length} bens no inventário atual`;
+        break;
+    }
+
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const document = new jsPDF({ orientation: columns.length > 6 ? "landscape" : "portrait" });
+    const generatedAt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date());
+    document.setProperties({ title: report.title, subject: "Relatório patrimonial FlowMap" });
+    document.setFont("helvetica", "bold");
+    document.setFontSize(16);
+    document.setTextColor(38, 63, 106);
+    document.text(report.title, 14, 19);
+    document.setFont("helvetica", "normal");
+    document.setFontSize(9);
+    document.setTextColor(70, 78, 90);
+    document.text(`${summary} | Gerado em ${generatedAt}`, 14, 26);
+    autoTable(document, {
+      head: [columns],
+      body: rows.length ? rows : [["Nenhum item encontrado", ...Array(columns.length - 1).fill("")]],
+      startY: 32,
+      margin: { left: 14, right: 14, bottom: 14 },
+      theme: "grid",
+      styles: { font: "helvetica", fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+      headStyles: { fillColor: [38, 63, 106], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+    for (let page = 1; page <= document.getNumberOfPages(); page += 1) {
+      document.setPage(page);
+      document.setFontSize(8);
+      document.setTextColor(110, 116, 126);
+      document.text(`FlowMap | Página ${page} de ${document.getNumberOfPages()}`, 14, document.internal.pageSize.getHeight() - 7);
+    }
+    const fileName = report.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    document.save(`${fileName}.pdf`);
+  };
   return (
     <>
       <div className="page-actions">
@@ -3651,19 +3719,19 @@ function Reports({ assets }: { assets: Asset[] }) {
         </button>
       </div>
       <div className="report-grid">
-        {reports.map(([title, desc, Icon]) => (
-          <article key={String(title)}>
+        {reports.map(({ key, title, description, Icon }) => (
+          <article key={key}>
             <div>
               <Icon />
               <span>RELATÓRIO</span>
             </div>
-            <h3>{String(title)}</h3>
-            <p>{String(desc)}</p>
+            <h3>{title}</h3>
+            <p>{description}</p>
             <div>
               <button onClick={exportExcel}>
                 <Download /> Excel
               </button>
-              <button onClick={() => window.print()}>
+              <button onClick={() => void exportPdf(key)}>
                 <FileBarChart /> PDF
               </button>
             </div>
@@ -4114,7 +4182,7 @@ function App() {
     content = <InspectionsPage templates={checklistTemplates} inspections={inspections} setInspections={setInspections} user={user} onNotify={notify} now={now} />;
   else if (page === "tickets")
     content = <TicketsPage tickets={tickets} setTickets={setTickets} onNotify={notify} user={user} assets={assets} />;
-  else if (page === "reports") content = <Reports assets={assets} />;
+  else if (page === "reports") content = <Reports assets={assets} movements={movements} maintenances={maintenances} />;
   else if (page === "chat")
     content = (
       <>
