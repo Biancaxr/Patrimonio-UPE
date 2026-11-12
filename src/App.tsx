@@ -1400,8 +1400,10 @@ function Sidebar({
         <nav>
           <small>GESTÃO</small>
           {main.map(item)}
-          <small>ADMINISTRAÇÃO</small>
-          {user.role === "admin" && admin.map(item)}
+          {user.role === "admin" && <>
+            <small>ADMINISTRAÇÃO</small>
+            {admin.map(item)}
+          </>}
         </nav>
         <div className="side-user">
           <div className="avatar">{user.initials}</div>
@@ -1448,6 +1450,21 @@ function Topbar({
 }) {
   const [open, setOpen] = useState(false);
   const [read, setRead] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setOpen(false);
+  }, [title]);
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!notificationRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [open]);
+  const fullDateTime = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(now);
+  const compactDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(now);
+  const compactTime = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(now);
   const activeMaintenance = maintenances.filter((item) => canMaintainItem(item, user, assets)).filter(
     (item) => item.status !== "Concluído",
   ).length;
@@ -1559,9 +1576,10 @@ function Topbar({
         </div>
       </div>
       <div className="top-actions">
-        <div className="live-date" title="Data e hora sincronizadas com este dispositivo">
+        <div className="live-date" aria-label={`Data e hora: ${fullDateTime}`} title="Data e hora sincronizadas com este dispositivo">
           <Clock3 />
-          <span>{new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(now)}</span>
+          <span className="live-date-full">{fullDateTime}</span>
+          <span className="live-date-compact"><time>{compactDate}</time><time>{compactTime}</time></span>
           <i />
         </div>
         <label className="global-search">
@@ -1572,7 +1590,7 @@ function Topbar({
             placeholder="Buscar patrimônio..."
           />
         </label>
-        <div className="notification-wrap">
+        <div className="notification-wrap" ref={notificationRef}>
           <button
             className={`notification ${open ? "active" : ""}`}
             aria-label="Abrir central de alertas"
