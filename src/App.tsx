@@ -1228,6 +1228,8 @@ function SupportForm({
   const [location, setLocation] = useState(asset?.room || "");
   const [category, setCategory] = useState<SupportTicket["category"]>(asset ? "Equipamento danificado" : "Falha de sistema");
   const [description, setDescription] = useState("");
+  const [imageData, setImageData] = useState("");
+  const [imageError, setImageError] = useState("");
   const audience: SupportTicket["audience"] = asset && !isElectronicAsset(asset) ? ["Administrativo"] : ["Administrativo", "NTI"];
   const save = () => onSubmit({
     id: `ticket-${Date.now()}`,
@@ -1239,6 +1241,7 @@ function SupportForm({
     location,
     category,
     description,
+    imageData: imageData || undefined,
     audience,
     status: "Novo",
     createdAt: new Date().toISOString(),
@@ -1262,6 +1265,21 @@ function SupportForm({
         </Field>
       </div>
       <Field label="Mensagem"><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descreva o defeito ou a ajuda necessária..." /></Field>
+      <Field label="Imagem do item/problema (opcional)">
+        <input type="file" accept="image/*" onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          if (file.size > 2500000) { setImageError("A imagem deve ter até 2,5 MB."); setImageData(""); return; }
+          if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setImageError("Use uma imagem JPG, PNG ou WEBP."); setImageData(""); return; }
+          setImageError("");
+          const reader = new FileReader();
+          reader.onload = () => setImageData(typeof reader.result === "string" ? reader.result : "");
+          reader.onerror = () => setImageError("Não foi possível carregar a imagem.");
+          reader.readAsDataURL(file);
+        }} />
+      </Field>
+      {imageError && <p className="ticket-image-error" role="alert">{imageError}</p>}
+      {imageData && <div className="ticket-image-upload"><img src={imageData} alt="Prévia da imagem anexada" /><button className="btn" type="button" onClick={() => setImageData("")}>Remover imagem</button></div>}
       <button className="btn primary full" disabled={!requester || !description || !location} onClick={save}>
         <Send /> Enviar chamado
       </button>
@@ -3558,8 +3576,18 @@ function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets:
   const canViewQueue = user.role !== "student";
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [ticketImage, setTicketImage] = useState<{ id: string; data: string } | null>(null);
   const visibleTickets = canViewQueue ? tickets.filter((ticket) => canHandleTicket(ticket, user, assets)) : [];
   const selected = visibleTickets.find((ticket) => ticket.id === selectedId) || null;
+  const loadTicketImage = async () => {
+    if (!selected) return;
+    try {
+      const result = await api<{ imageData: string }>(`/tickets/${selected.id}/image`);
+      setTicketImage({ id: selected.id, data: result.imageData });
+    } catch (cause) {
+      onNotify(cause instanceof Error ? cause.message : "Não foi possível carregar a imagem.");
+    }
+  };
   const create = async (ticket: SupportTicket) => {
     let saved = ticket;
     if (hasApi()) {
@@ -3621,6 +3649,7 @@ function TicketsPage({ tickets, setTickets, onNotify, user, assets }: { tickets:
           <div><span>Etapa atual</span><Status>{selected.status}</Status></div>
           {selected.assetCode && <div><span>Equipamento</span><strong>{selected.assetCode} • {selected.assetName}</strong></div>}
           <div><span>Descrição</span><p>{selected.description}</p></div>
+          {selected.hasImage && <div className="ticket-image-detail"><span>Imagem do item/problema</span>{ticketImage?.id === selected.id ? <img src={ticketImage.data} alt={`Imagem anexada ao chamado ${selected.id}`} /> : <button className="btn" type="button" onClick={() => void loadTicketImage()}>Visualizar imagem</button>}</div>}
           <div><span>Local</span><strong>{selected.location}</strong></div>
           <div><span>Solicitante</span><strong>{selected.requester} {selected.contact && `• ${selected.contact}`}</strong></div>
           <div><span>Notificados</span><strong>{selected.audience.join(" e ")}</strong></div>

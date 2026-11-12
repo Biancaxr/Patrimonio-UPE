@@ -73,6 +73,8 @@ export interface SupportTicket {
   location: string
   category: 'Equipamento danificado' | 'Falha de sistema' | 'Dúvida' | 'Outro'
   description: string
+  imageData?: string
+  hasImage?: boolean
   audience: ('Administrativo' | 'NTI')[]
   status: TicketStatus
   createdAt: string
