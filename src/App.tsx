@@ -765,7 +765,7 @@ function PublicArea({
           <p>Universidade de Pernambuco • Campus Caruaru</p>
           <div className="footer-credits">
             <span>© {now.getFullYear()} UPE</span>
-            <span>Desenvolvido por <strong>Flomap</strong></span>
+            <span>Desenvolvido por <strong>FlowMap</strong></span>
           </div>
         </div>
       </footer>

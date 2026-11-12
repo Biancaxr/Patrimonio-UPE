@@ -225,6 +225,8 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
   .login-back-mobile:focus-visible{outline:2px solid #263f6a;outline-offset:4px;border-radius:4px}
 }
 .hero-copy h1{color:#263f6a}
+.public-page footer .container{height:auto;min-height:150px;flex-direction:column;justify-content:center;gap:14px;text-align:center}
+.public-page footer .logo,.public-page footer .footer-credits{align-items:center;text-align:center}
 
 .live-date-compact{display:none}
 @media(max-width:950px){
