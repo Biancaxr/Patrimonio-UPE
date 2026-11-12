@@ -224,3 +224,4 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
   .login-back-mobile{display:inline-flex;min-height:44px;margin-bottom:24px;padding:0 8px 0 0;color:#263f6a;font-size:14px;font-weight:700}
   .login-back-mobile:focus-visible{outline:2px solid #263f6a;outline-offset:4px;border-radius:4px}
 }
+.hero-copy h1{color:#263f6a}

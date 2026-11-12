@@ -657,7 +657,7 @@ function PublicArea({
           <div className="container hero-grid">
             <div className="hero-copy">
               <h1>
-                Flow<em>Map</em>
+                FlowMap
               </h1>
               <p>
                 Gestão inteligente do patrimônio universitário, conectando inventário, localização, 
